@@ -1,5 +1,7 @@
 import json
-from typing import Dict, List, Any, Optional
+import logging
+from typing import Dict, List, Any, Optional, Tuple, Union
+from textwrap import dedent
 
 from cerebra.utils.chat_history import ChatHistory
 from cerebra.utils.parsing import extract_tags
@@ -15,51 +17,64 @@ class Agent:
         description: str,
         instructions,
         output_format: str = "",
-        tools: List[Any] = [],
+        tools: List[Any] = None,
         model: str = "llama-3.3-70b-versatile",
         verbose: bool = False,
     ):
+        if not name:
+            raise ValueError("Agent name cannot be empty.")
+
         self.name = name
         self.role: str = role
         self.description: str = description
         self.instructions = instructions
         self.output_format: str = output_format
-        self.tools = tools
+        self.tools = tools or []
         self.model = model
         self.verbose: bool = verbose
 
         self.chat_history: Optional[ChatHistory] = None
 
-        self.client = APIClient.get_client()
-
         self.context = ""
 
-    def _build_system_prompt(self, inputs: Optional[Dict] = None):
+        try:
+            self.client = APIClient.get_client()
+        except ValueError as e:
+            raise ValueError(f"API client setup failed for agent '{self.name}': {e}") from e
+        except Exception as e:
+            raise Exception(f"Unexpected error initializing API client for agent '{self.name}': {e}") from e
 
+    def _build_system_prompt(self, inputs: Optional[Dict] = None):
         inputs = inputs if inputs else {}
 
-        formats = {
-            "role": self.role.format(**inputs) if self.role else "",
-            "description": self.description.format(**inputs) if self.description else "",
-            "instructions": self.instructions.format(**inputs) if self.instructions else "",
-        }
+        try:
+            formats = {
+                "role": self.role.format(**inputs) if self.role else "",
+                "description": self.description.format(**inputs) if self.description else "",
+                "instructions": self.instructions.format(**inputs) if self.instructions else "",
+            }
+        except KeyError as e:
+            raise ValueError(f"Input dictionary missing required key for agent '{self.name}' prompt formatting: {e}") from e
 
         system_prompt = ""
 
-        if self.role != "":
+        if self.role:
             system_prompt += SystemPrompts.role.format(**formats)
 
-        if self.description != "":
+        if self.description:
             system_prompt += SystemPrompts.description.format(**formats)
 
-        if self.instructions != "":
+        if self.instructions:
             system_prompt += SystemPrompts.instructions.format(**formats)
 
         if self.tools:
-            tool_signatures = self.get_tool_signatures()
-            tools_format = {"tools": tool_signatures}
-            system_prompt += SystemPrompts.tools.format(**tools_format)
-            system_prompt += SystemPrompts.tool_example
+            try:
+                tool_signatures = self.get_tool_signatures()
+                tools_format = {"tools": tool_signatures}
+                system_prompt += SystemPrompts.tools.format(**tools_format)
+                system_prompt += SystemPrompts.tool_example
+            except Exception as e:
+                raise Exception(f"Could not generate tool signatures for agent '{self.name}': {e}") from e
 
         if self.output_format:
             out_format = {"output_format": self.output_format}
@@ -74,11 +89,14 @@ class Agent:
     def invoke(self, messages: list) -> str:
         try:
             response = self.client.chat.completions.create(messages=messages, model=self.model)
+
+            if not response.choices or not response.choices[0].message or response.choices[0].message.content is None:
+                raise Exception(f"API response for agent '{self.name}' missing expected content.")
+
             content = str(response.choices[0].message.content)
             return content
         except Exception as e:
-            error_message = f"Error during model invocation: {str(e)}"
-            raise RuntimeError(f"Agent execution stopped: {error_message}") from e
+            raise Exception(f"Agent '{self.name}' execution stopped due to API error: {e}") from e
 
     def process_tool_calls(self, tool_calls: List[str]) -> Dict:
         results: Dict[Any, Any] = {}
@@ -105,18 +123,17 @@ class Agent:
         from textwrap import dedent
 
         if context is None or context == "":
-            context = "No context"
+            context = "No context provided"
 
-        formats = {
-            "context": context,
-        }
+        formats = {"context": context}
 
-        prompt = dedent(SystemPrompts.group.format(**formats)).strip()
-
-        return prompt
+        try:
+            prompt = dedent(SystemPrompts.group.format(**formats)).strip()
+            return prompt
+        except KeyError as e:
+            return f"Error building prompt: {e}. Context was the following: {context}"
 
     def run(self, inputs: dict, context: str = None, max_iterations: int = 10) -> str:
-
         system_prompt = self._build_system_prompt(inputs)
         self.chat_history = ChatHistory([ChatHistory.format_message(system_prompt, role="system")])
 
@@ -125,7 +142,6 @@ class Agent:
 
         if self.tools:
             for iteration in range(1, max_iterations + 1):
-
                 completion = self.invoke(self.chat_history.get_messages())
                 self.chat_history.add_message(completion, "assistant")
 
