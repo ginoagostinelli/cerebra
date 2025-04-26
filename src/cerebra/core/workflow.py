@@ -47,7 +47,7 @@ class Workflow(ABC):
 class SequentialWorkflow(Workflow):
     """Executes agents in a predefined linear sequence."""
 
-    def run(self, agents: List["Agent"], inputs: Any, context: str = None, max_iterations: int = 10) -> Any:
+    def run(self, agents: List["Agent"], inputs: Any = None, context: str = None, max_iterations: int = 10) -> Any:
         """
         Runs agents one after another, passing the output of one as the input to the next.
         """
@@ -104,7 +104,7 @@ class BroadcastWorkflow(Workflow):
         print(f" - Output:\n{json.dumps(output, indent=2)}")
         return agent.name, output
 
-    def run(self, agents: List["Agent"], inputs: Any, context: str = None, max_iterations: int = 10) -> Dict[str, Any]:
+    def run(self, agents: List["Agent"], inputs: Any = None, context: str = None, max_iterations: int = 10) -> Dict[str, Any]:
         """
         Runs all agents in parallel with the same input.
 

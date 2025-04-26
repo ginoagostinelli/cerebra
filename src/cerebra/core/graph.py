@@ -35,7 +35,7 @@ class Node:
         self.id: str = id
         self.content: Group = content
 
-    def run(self, inputs: Any, context: str = None, max_iterations: int = 10) -> Any:
+    def run(self, inputs: Any = None, context: str = None, max_iterations: int = 10) -> Any:
         """
         Executes the content of the node.
 
@@ -160,12 +160,12 @@ class Graph:
         except Exception as e:
             raise ValueError(f"Could not determine execution order. Graph might contain cycles or be invalid: {e}") from e
 
-    def run(self, initial_input: Any, max_iterations_per_node: int = 10) -> Dict[str, Any]:
+    def run(self, inputs: Any = None, max_iterations_per_node: int = 10) -> Dict[str, Any]:
         """
         Executes the graph workflow.
 
         Args:
-            initial_input: The single input data provided to the start of the graph.
+            inputs: The single input data provided to the start of the graph.
             max_iterations_per_node: Max iteration limit passed to each node's run method.
 
         Returns:
@@ -221,7 +221,7 @@ class Graph:
 
             try:
                 output = node.run(
-                    inputs=initial_input,
+                    inputs=inputs,
                     context=node_context,
                     max_iterations=max_iterations_per_node,
                 )

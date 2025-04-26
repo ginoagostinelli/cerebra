@@ -59,7 +59,7 @@ class Group:
     def view(self):
         pass
 
-    def run(self, inputs: Any, context: str = None, max_iterations: int = 10) -> Any:
+    def run(self, inputs: Any = None, context: str = None, max_iterations: int = 10) -> Any:
         """
         Runs the group using the configured workflow.
 

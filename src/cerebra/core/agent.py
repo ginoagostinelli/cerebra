@@ -133,7 +133,7 @@ class Agent:
         except KeyError as e:
             return f"Error building prompt: {e}. Context was the following: {context}"
 
-    def run(self, inputs: dict, context: str = None, max_iterations: int = 10) -> str:
+    def run(self, inputs: dict = None, context: str = None, max_iterations: int = 10) -> str:
         system_prompt = self._build_system_prompt(inputs)
         self.chat_history = ChatHistory([ChatHistory.format_message(system_prompt, role="system")])
 
