@@ -35,7 +35,7 @@ class Node:
         self.id: str = id
         self.content: Group = content
 
-    def run(self, inputs: Any = None, context: str = None, max_iterations: int = 10) -> Any:
+    def run(self, inputs: Any = None, context: Any = None, max_iterations: int = 10) -> Any:
         """
         Executes the content of the node.
 
@@ -46,7 +46,7 @@ class Node:
         Returns:
             The result from executing the node's content.
         """
-        return self.content.run(inputs, context=context, max_iterations=max_iterations)
+        return self.content.run(inputs=inputs, context=context, max_iterations=max_iterations)
 
     def __repr__(self) -> str:
         content_name = getattr(self.content, "name", str(self.content))

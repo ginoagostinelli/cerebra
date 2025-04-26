@@ -35,8 +35,6 @@ class Agent:
 
         self.chat_history: Optional[ChatHistory] = None
 
-        self.context = ""
-
         try:
             self.client = APIClient.get_client()
         except ValueError as e:
@@ -119,21 +117,37 @@ class Agent:
                 results[call_id] = f"Error processing tool call: {str(e)}"
         return results
 
-    def _build_prompt(self, context: str = None):
+    def _build_prompt(self, context: Any = None):
         from textwrap import dedent
 
-        if context is None or context == "":
-            context = "No context provided"
+        context_str = ""
+        if context is None:
+            context_str = "No context provided."
+        elif isinstance(context, dict):
+            context_str = "Received context from multiple sources:\n"
+            try:
+                context_str += json.dumps(context, indent=2)
+            except TypeError:
+                context_str += str(context)
+        elif isinstance(context, str):
+            context_str = context
+        else:
+            context_str = str(context)
 
-        formats = {"context": context}
+        if not context_str:
+            context_str = "No context provided"  # Ensure context_str is never empty
+
+        formats = {"context": context_str}
 
         try:
             prompt = dedent(SystemPrompts.group.format(**formats)).strip()
             return prompt
         except KeyError as e:
-            return f"Error building prompt: {e}. Context was the following: {context}"
+            return f"Error building prompt: Missing key {e} in SystemPrompts.group. Provided context was: {context_str}"
+        except Exception as e:
+            return f"Error building prompt: {e}. Context was: {context_str}"
 
-    def run(self, inputs: dict = None, context: str = None, max_iterations: int = 10) -> str:
+    def run(self, inputs: dict = None, context: Any = None, max_iterations: int = 10) -> str:
         system_prompt = self._build_system_prompt(inputs)
         self.chat_history = ChatHistory([ChatHistory.format_message(system_prompt, role="system")])
 
