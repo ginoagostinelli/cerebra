@@ -174,7 +174,7 @@ class Graph:
         try:
             execution_order = self.get_execution_order()
         except ValueError as e:
-            print(f"Error determining execution order: {e}")
+            print(f"Halting execution due to error determining order: {e}")
             return {}
 
         _, node_predecessors = self._get_graph_definition()
