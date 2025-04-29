@@ -98,7 +98,7 @@ class Graph:
         elif from_node_id not in self.nodes:
             raise ValueError(f"Source node '{from_node_id}' not found in graph.")
         elif from_node_id == to_node_id:
-            raise ValueError("Cannot add self-loop edge.")
+            raise ValueError(f"Cannot add self-loop edge from '{from_node_id}' to itself.")
 
         self.edges[from_node_id].add(to_node_id)
         self._predecessors[to_node_id].add(from_node_id)
@@ -112,29 +112,24 @@ class Graph:
             - edges: The complete edge map (including START node connections).
             - predecessors: The complete predecessor map.
         """
-        edges = defaultdict(set)
-        predecessors = defaultdict(set)
+        edges = defaultdict(set, {k: v.copy() for k, v in self.edges.items()})
+        predecessors = defaultdict(set, {k: v.copy() for k, v in self._predecessors.items()})
 
-        for u, targets in self.edges.items():
-            edges[u].update(targets)
-        for v, sources in self._predecessors.items():
-            predecessors[v].update(sources)
-
-        # Ensure all nodes exist as keys even if they have no outgoing edges/predecessors
+        # Ensure all nodes added via add_node exist as keys
         for node_id in self.nodes:
             edges.setdefault(node_id, set())
             predecessors.setdefault(node_id, set())
 
-        # Determine starting nodes
+        # Determine starting nodes based on predecessors
         start_node_targets = set()
         if self._has_start_node_edges:
-            start_node_targets = edges.get(START_NODE_ID, set())
-            if not start_node_targets:
-                print(f"Warning: Start node was marked explicit, but no edges from {START_NODE_ID} found.")
+            start_node_targets = edges.get(START_NODE_ID, set()).intersection(self.nodes.keys())  # Ensure targets exist
+            if not start_node_targets and self.nodes and START_NODE_ID in edges:
+                print(f"Warning: Edges from {START_NODE_ID} were indicated, but none connect to existing nodes in the graph.")
         else:
             for node_id in self.nodes:
-                preds = predecessors.get(node_id, set())
-                if not preds or preds == {START_NODE_ID}:  # Handles nodes only connected from START explicitly
+                node_preds = predecessors.get(node_id, set())
+                if not any(pred in self.nodes for pred in node_preds):  # A node is a starting node if it has no predecessors within self.nodes
                     start_node_targets.add(node_id)
 
             if not start_node_targets and self.nodes:
@@ -146,8 +141,8 @@ class Graph:
                     predecessors[target_node].add(START_NODE_ID)
 
         # Ensure START_NODE_ID exists in the maps if it has connections
-        if start_node_targets:
-            edges.setdefault(START_NODE_ID, set()).update(start_node_targets)
+        if edges.get(START_NODE_ID):
+            edges.setdefault(START_NODE_ID, set())
             predecessors.setdefault(START_NODE_ID, set())
 
         return dict(edges), dict(predecessors)
