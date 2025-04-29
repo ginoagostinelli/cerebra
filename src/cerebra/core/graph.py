@@ -24,7 +24,7 @@ class Node:
             raise ValueError("Node ID must be a non-empty string.")
 
         if not isinstance(content, Group):
-            raise TypeError("Content must be a Group. (Only Group support for now)")
+            raise TypeError(f"Node content must be an instance of Group. Received: {type(content)}")
 
         # Basic check, could add more specific type checks later
         # if not hasattr(content, "run") or not callable(content.run):
@@ -50,7 +50,8 @@ class Node:
 
     def __repr__(self) -> str:
         content_name = getattr(self.content, "name", str(self.content))
-        return f"Node(id='{self.id}', content='{content_name}')"
+        workflow_type = self.content.workflow.__class__.__name__
+        return f"Node(id='{self.id}', group='{content_name}', workflow='{workflow_type}')"
 
 
 class Graph:
