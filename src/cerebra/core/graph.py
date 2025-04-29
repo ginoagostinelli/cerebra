@@ -296,82 +296,129 @@ class Graph:
             return dot
 
         else:
-            dot = graphviz.Digraph(comment="Detailed Agent Graph")
-            dot.attr(rankdir="LR")
+            dot = graphviz.Digraph(comment="Agent Execution Graph")
+            dot.attr(rankdir="LR", splines="ortho", nodesep="0.5", ranksep="0.8", compound="true")
 
-            agents_info: Dict[str, Dict[str, str]] = {}
+            agents_info: Dict[str, Dict[str, str]] = {}  # global_agent_id -> {label, group_id}
+
+            # group_node_id -> {workflow, agent_ids, first_agent, last_agent, broadcast_input_node, broadcast_output_node}
             groups_plot_info: Dict[str, Dict[str, Any]] = {}
 
             if has_start_node:
                 dot.node(START_NODE_ID, label=start_node_label, **start_node_attrs)
 
-            # Create nodes for all agents
+            # Create nodes for all agents within each group's subgraph
             for node_id, node in self.nodes.items():
-                content = node.content
-                if isinstance(content, Group) and content.agents:
-                    group_agents_list = []
-                    first_agent_id, last_agent_id, broadcast_input_node_id = (
-                        None,
-                        None,
-                        None,
-                    )
-                    if isinstance(content.workflow, BroadcastWorkflow):
-                        broadcast_input_node_id = f"{node_id}_broadcast_entry"
-                        dot.node(
-                            broadcast_input_node_id,
-                            "",
-                            shape="point",
-                            width="0.1",
-                            height="0.1",
+                group = node.content
+                if isinstance(group, Group) and group.agents:
+                    # Create a subgraph for the group to visually cluster agents
+                    with dot.subgraph(name=f"cluster_{node_id}") as sub:
+                        sub.attr(
+                            label=f"{group.name}\n({group.workflow.__class__.__name__})",
+                            style="rounded,filled",
+                            color="lightgrey",
+                            fillcolor="whitesmoke",
                         )
-                    for i, agent in enumerate(content.agents):
-                        global_id = f"{node_id}_{agent.name}"
-                        if global_id in agents_info:
-                            print(f"Warning: Duplicate global agent ID: {global_id}")
-                        agents_info[global_id] = {
-                            "label": agent.name,
-                            "group_id": node_id,
-                        }
-                        dot.node(global_id, label=agent.name)
-                        group_agents_list.append(global_id)
-                        if i == 0:
-                            first_agent_id = global_id
-                        last_agent_id = global_id
-                    groups_plot_info[node_id] = {
-                        "workflow": content.workflow,
-                        "agent_ids": group_agents_list,
-                        "first_agent": first_agent_id,
-                        "last_agent": last_agent_id,
-                        "broadcast_input_node": broadcast_input_node_id,
-                    }
+                        sub.attr(rank="same")  # Try to keep agents horizontally aligned if possible
 
-            # Create workflow-specific edges within groups
+                        group_agents_list = []  # List of global agent IDs in this group
+                        first_agent_id, last_agent_id = None, None
+                        broadcast_input_node_id, broadcast_output_node_id = None, None
+
+                        # Create special points for broadcast input/output visualization *inside* subgraph
+                        if isinstance(group.workflow, BroadcastWorkflow):
+                            broadcast_input_node_id = f"{node_id}_broadcast_entry"
+                            sub.node(
+                                name=broadcast_input_node_id,
+                                label="",
+                                shape="circle",
+                                width="0.15",
+                                height="0.15",
+                                style="filled",
+                                fillcolor="dodgerblue",
+                            )
+                            broadcast_output_node_id = f"{node_id}_broadcast_collector"
+                            sub.node(
+                                name=broadcast_output_node_id,
+                                label="",
+                                shape="circle",
+                                width="0.15",
+                                height="0.15",
+                                style="filled",
+                                fillcolor="tomato",
+                            )
+
+                        # Create nodes for each agent *inside* subgraph
+                        for i, agent in enumerate(group.agents):
+                            global_id = f"{node_id}_{agent.name}"
+                            # Handle potential duplicate agent names within the *same* group if necessary
+                            count = 1
+                            original_global_id = global_id
+                            while global_id in agents_info:
+                                count += 1
+                                global_id = f"{original_global_id}_{count}"
+                                print(f"Warning (Plot): Adjusting duplicate agent plot ID to {global_id}")
+
+                            agents_info[global_id] = {
+                                "label": agent.name + (f"_{count}" if count > 1 else ""),  # Adjust label if ID changed
+                                "group_id": node_id,
+                            }
+                            # Add agent node to the subgraph
+                            sub.node(global_id, label=agents_info[global_id]["label"], shape="ellipse", style="filled", fillcolor="white")
+                            group_agents_list.append(global_id)
+                            if i == 0:
+                                first_agent_id = global_id
+                            last_agent_id = global_id
+
+                        groups_plot_info[node_id] = {
+                            "workflow": group.workflow,
+                            "agent_ids": group_agents_list,
+                            "first_agent": first_agent_id,
+                            "last_agent": last_agent_id,
+                            "broadcast_input_node": broadcast_input_node_id,
+                            "broadcast_output_node": broadcast_output_node_id,
+                        }
+
+            # Create workflow-specific edges *within* groups (connecting agents/points)
             for node_id, info in groups_plot_info.items():
                 workflow = info["workflow"]
                 agent_ids = info["agent_ids"]
+
                 if isinstance(workflow, SequentialWorkflow) and len(agent_ids) > 1:
                     for i in range(len(agent_ids) - 1):
-                        dot.edge(agent_ids[i], agent_ids[i + 1])
+                        dot.edge(agent_ids[i], agent_ids[i + 1], color="black")
+
                 elif isinstance(workflow, BroadcastWorkflow) and agent_ids:
                     input_node = info["broadcast_input_node"]
-                    if input_node:
+                    output_node = info["broadcast_output_node"]
+                    if input_node and output_node:
                         for agent_id in agent_ids:
-                            dot.edge(input_node, agent_id)
+                            dot.edge(input_node, agent_id, color="dodgerblue", arrowhead="none")
+                        for agent_id in agent_ids:
+                            dot.edge(agent_id, output_node, style="dashed", color="tomato", arrowhead="none")  # Connector
 
-            # Connect groups with edges
+            # Connect groups/nodes based on the main graph edges (inter-group connections)
             for from_node_id, successors in effective_edges.items():
                 connect_from_id = None
                 is_from_start_node = from_node_id == START_NODE_ID
 
                 if is_from_start_node:
-                    connect_from_id = START_NODE_ID
+                    if has_start_node:
+                        connect_from_id = START_NODE_ID
+                    else:
+                        continue  # Skip if START isn't plotted
                 elif from_node_id in groups_plot_info:
-                    connect_from_id = groups_plot_info[from_node_id].get("last_agent")
+                    from_info = groups_plot_info[from_node_id]
+                    if isinstance(from_info["workflow"], BroadcastWorkflow):
+                        connect_from_id = from_info.get("broadcast_output_node")
+                    else:  # Default (Sequential, or others)
+                        connect_from_id = from_info.get("last_agent")
                 # Else: Source is not START and not a plottable group
 
                 if not connect_from_id:
                     continue
 
+                # Connect to each successor
                 for to_node_id in successors:
                     if to_node_id == START_NODE_ID:
                         continue
@@ -380,25 +427,43 @@ class Graph:
 
                     to_info = groups_plot_info[to_node_id]
                     connect_to_id = None
+
+                    # Determine the connection point for the target node based on its workflow
                     target_workflow = to_info["workflow"]
                     if isinstance(target_workflow, BroadcastWorkflow):
                         connect_to_id = to_info.get("broadcast_input_node")
-                    else:
+                    else:  # Default (Sequential, or others)
                         connect_to_id = to_info.get("first_agent")
 
                     if not connect_to_id:
                         continue
 
-                    # Add the edge with appropriate style
+                    # Add the edge
                     edge_attrs = {}
+
+                    lhead = f"cluster_{to_node_id}" if to_node_id in groups_plot_info else None
+                    ltail = f"cluster_{from_node_id}" if from_node_id in groups_plot_info else None
+
                     if is_from_start_node:
-                        edge_attrs = {"color": "darkgreen", "penwidth": "1.5"}
+                        edge_attrs = {"color": "darkgreen", "penwidth": "2.0", "style": "bold"}
+                        if lhead:
+                            edge_attrs["lhead"] = lhead
                     else:
+                        # Style for edges between groups/nodes
                         edge_attrs = {
                             "style": "dashed",
-                            "color": "blue",
-                            "constraint": "false",
+                            "color": "darkblue",
+                            "penwidth": "1.5",
+                            "constraint": "true",
                         }
+                        if ltail:
+                            edge_attrs["ltail"] = ltail
+                        if lhead:
+                            edge_attrs["lhead"] = lhead
+
+                    # Remove None values from edge_attrs
+                    edge_attrs = {k: v for k, v in edge_attrs.items() if v is not None}
+
                     dot.edge(connect_from_id, connect_to_id, **edge_attrs)
 
             return dot
