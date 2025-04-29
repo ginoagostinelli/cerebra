@@ -249,32 +249,50 @@ class Graph:
             "shape": "Mdiamond",
             "style": "filled",
             "color": "mediumseagreen",
+            "fontcolor": "white",
         }
 
         effective_edges, _ = self._get_graph_definition()
-        has_start_node = START_NODE_ID in effective_edges
+        has_start_node = START_NODE_ID in effective_edges or any(START_NODE_ID in preds for preds in effective_predecessors.values())
 
         if not detailed:
             dot = graphviz.Digraph(comment="Group Execution Graph")
-            dot.attr(rankdir="LR")
+            dot.attr(rankdir="LR", splines="ortho", nodesep="0.8", ranksep="1")
 
             if has_start_node:
                 dot.node(START_NODE_ID, label=start_node_label, **start_node_attrs)
 
             # Add regular nodes
             for node_id, node in self.nodes.items():
-                label = f"ID: {node.id}\nGroup: {getattr(node.content, 'name', 'N/A')}"
-                dot.node(node_id, label=label, shape="box")
+                group = node.content
+                workflow_type = group.workflow.__class__.__name__
+                num_agents = len(group.agents)
+                # label = f"<{node_id}<BR/>" f"<B>{group.name}</B><BR/>" f'<FONT POINT-SIZE="10">{workflow_type} ({num_agents} agents)</FONT>>'
+                label = f"<{node_id}<BR/>" f"<B>{group.name}</B><BR/>" f'<FONT POINT-SIZE="10">{workflow_type} ({num_agents} agents)</FONT>>'
+                dot.node(node_id, label=label, shape="box", style="rounded,filled", fillcolor="lightblue")  # Box shape for groups
 
             # Add edges from the graph definition
             for from_id, successors in effective_edges.items():
-                # Skip plotting edges *within* the conceptual start node if somehow added
-                if from_id == START_NODE_ID and START_NODE_ID in successors:
-                    continue
                 for to_id in successors:
+                    # Don't draw edges *to* the START node
                     if to_id == START_NODE_ID:
-                        continue  # Should not happen based on add_edge logic
-                    dot.edge(from_id, to_id)
+                        continue
+                    # Don't draw edges from a node not in the plot (e.g., START if not connected)
+                    if from_id == START_NODE_ID and not has_start_node:
+                        continue
+                    # Ensure target node exists in the plot
+                    if to_id not in self.nodes and to_id != START_NODE_ID:  # Check against actual nodes
+                        print(f"Warning (Plot): Target node '{to_id}' for edge from '{from_id}' not found in graph nodes. Skipping edge.")
+                        continue
+
+                    # Set edge color
+                    edge_attrs = {}
+                    if from_id == START_NODE_ID:
+                        edge_attrs = {"color": "darkgreen", "penwidth": "2.0", "style": "bold"}
+                    else:
+                        edge_attrs = {"color": "black", "penwidth": "1.0"}
+                    dot.edge(from_id, to_id, **edge_attrs)
+
             return dot
 
         else:
