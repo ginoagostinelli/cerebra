@@ -150,9 +150,20 @@ class Graph:
     def get_execution_order(self) -> List[str]:
         """Determines the execution order of nodes using topological sort."""
         edges, predecessors = self._get_graph_definition()
+
+        graph_for_sort = defaultdict(set)
+        all_nodes_in_graph = set(predecessors.keys()) | set(edges.keys())
+        for source, targets in edges.items():
+            all_nodes_in_graph.add(source)
+            all_nodes_in_graph.update(targets)
+
+        for node_id in all_nodes_in_graph:
+            graph_for_sort[node_id] = predecessors.get(node_id, set())
+
         try:
-            ts = TopologicalSorter(predecessors)
-            return list(ts.static_order())
+            ts = TopologicalSorter(graph_for_sort)
+            static_order = list(ts.static_order())
+            return static_order
         except Exception as e:
             raise ValueError(f"Could not determine execution order. Graph might contain cycles or be invalid: {e}") from e
 
@@ -179,10 +190,6 @@ class Graph:
         if not self.nodes:
             print("Graph has no nodes to execute.")
             return {}
-        if START_NODE_ID not in execution_order and any(START_NODE_ID in preds for preds in node_predecessors.values()):
-            print(
-                f"Warning: Graph seems to have starting nodes connected from {START_NODE_ID}, but it wasn't included in execution order. Check for cycles."
-            )
 
         for node_id in execution_order:
             if node_id == START_NODE_ID:
