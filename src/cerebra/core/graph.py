@@ -4,6 +4,7 @@ from collections import defaultdict
 from graphlib import TopologicalSorter
 from cerebra.core.group import Group
 from cerebra.core.workflow import SequentialWorkflow, BroadcastWorkflow
+import traceback
 
 START_NODE_ID = "__START__"
 
@@ -200,7 +201,7 @@ class Graph:
                 continue
 
             node = self.nodes[node_id]
-            # print(f"\nProcessing Node: {node.id} ({getattr(node.content, 'name', 'N/A')})")
+            group_name = node.content.name
 
             predecessors = node_predecessors.get(node_id, set())
             node_context: Any = None
@@ -230,7 +231,8 @@ class Graph:
                 )
                 node_outputs[node_id] = output
             except Exception as e:
-                print(f"ERROR running node '{node_id}': {e}")
+                print(f"ERROR executing node '{node_id}' (Group: {group_name}): {e}")
+                print(traceback.format_exc())
                 node_outputs[node_id] = f"ERROR: {e}"
                 # Decide on error handling: continue or raise?
                 # raise RuntimeError(f"Execution failed at node '{node_id}'") from e
