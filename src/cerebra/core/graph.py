@@ -257,7 +257,7 @@ class Graph:
             "fontcolor": "white",
         }
 
-        effective_edges, _ = self._get_graph_definition()
+        effective_edges, effective_predecessors = self._get_graph_definition()
         has_start_node = START_NODE_ID in effective_edges or any(START_NODE_ID in preds for preds in effective_predecessors.values())
 
         if not detailed:
