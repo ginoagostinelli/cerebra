@@ -1,5 +1,5 @@
 import graphviz
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Dict, Any, List, Set, Tuple, Union
 from collections import defaultdict
 from graphlib import TopologicalSorter
 from cerebra.core.group import Group
@@ -64,17 +64,30 @@ class Graph:
         self._predecessors: Dict[str, Set[str]] = defaultdict(set)
         self._has_start_node_edges = False  # Track if the user explicitly added edges from START_NODE_ID
 
-    def add_node(self, node: Node):
-        """Adds a Node to the graph."""
-        if not isinstance(node, Node):
-            raise TypeError("Can only add objects of type Node to the graph.")
-        if node.id == START_NODE_ID:
-            raise ValueError(f"Node ID cannot be the reserved ID '{START_NODE_ID}'.")
-        if node.id in self.nodes:
-            raise ValueError(f"Node with ID '{node.id}' already exists in the graph.")
+    def add_node(self, item: Union[Node, Group]):
+        """Adds an item to the graph."""
+        if isinstance(item, Group):
+            node_id = item.name
+            if not node_id:
+                raise ValueError("Group provided to add_node must have a non-empty name.")
+            if node_id == START_NODE_ID:
+                raise ValueError(f"Group name cannot be the reserved ID '{START_NODE_ID}'.")
+            if node_id in self.nodes:
+                # Optional: Allow updating existing node content? For now, raise error.
+                raise ValueError(f"Node or Group with name/ID '{node_id}' already exists.")
+            node = Node(id=node_id, content=item)
+        elif isinstance(item, Node):
+            node = item
+            if node.id == START_NODE_ID:
+                raise ValueError(f"Node ID cannot be the reserved ID '{START_NODE_ID}'.")
+            if node.id in self.nodes:
+                raise ValueError(f"Node with ID '{node.id}' already exists.")
+        else:
+            raise TypeError("Can only add objects of type Node or Group to the graph.")
+
         self.nodes[node.id] = node
-        self.edges[node.id] = self.edges.get(node.id, set())
-        self._predecessors[node.id] = self._predecessors.get(node.id, set())
+        self.edges.setdefault(node.id, set())
+        self._predecessors.setdefault(node.id, set())
 
     def add_edge(self, from_node_id: str, to_node_id: str):
         """
