@@ -272,8 +272,7 @@ class Graph:
                 group = node.content
                 workflow_type = group.workflow.__class__.__name__
                 num_agents = len(group.agents)
-                # label = f"<{node_id}<BR/>" f"<B>{group.name}</B><BR/>" f'<FONT POINT-SIZE="10">{workflow_type} ({num_agents} agents)</FONT>>'
-                label = f"<{node_id}<BR/>" f"<B>{group.name}</B><BR/>" f'<FONT POINT-SIZE="10">{workflow_type} ({num_agents} agents)</FONT>>'
+                label = f"<<B>{group.name}</B><BR/>" f'<FONT POINT-SIZE="10">{workflow_type} ({num_agents} agents)</FONT>>'
                 dot.node(node_id, label=label, shape="box", style="rounded,filled", fillcolor="lightblue")  # Box shape for groups
 
             # Add edges from the graph definition
