@@ -1,6 +1,6 @@
 from typing import List, Optional, Any, Dict, Union
 from cerebra.core import Agent
-from cerebra.core.workflow import Workflow, SequentialWorkflow
+from cerebra.core.workflow import Workflow, SequentialWorkflow, ParallelWorkflow
 
 
 class Group:
@@ -23,6 +23,14 @@ class Group:
             self.workflow: Workflow = SequentialWorkflow()
         elif isinstance(workflow, Workflow):
             self.workflow: Workflow = workflow
+        elif isinstance(workflow, str):
+            workflow = workflow.lower()
+            if workflow == "sequential":
+                self.workflow: Workflow = SequentialWorkflow()
+            elif workflow == "parallel":
+                self.workflow: Workflow = ParallelWorkflow()
+            else:
+                raise ValueError("The workflow provided doesn't exist. It must be 'sequential' or 'parallel")
         else:
             raise TypeError("workflow must be an instance of a Workflow subclass")
 
