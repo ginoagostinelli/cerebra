@@ -85,12 +85,12 @@ class SequentialWorkflow(Workflow):
         return dot
 
 
-class BroadcastWorkflow(Workflow):
+class ParallelWorkflow(Workflow):
     """Broadcasts inputs to all agents in parallel and collects all outputs."""
 
     def __init__(self, parallel: bool = True):
         """
-        Initialize the broadcast workflow.
+        Initialize the parallel workflow.
 
         Args:
             parallel: Whether to run agents in parallel using ThreadPoolExecutor
@@ -127,23 +127,23 @@ class BroadcastWorkflow(Workflow):
         return results
 
     def plot(self, agents: List["Agent"]) -> graphviz.Digraph:
-        """Returns a Digraph object for broadcast flow."""
-        dot = graphviz.Digraph(comment="Broadcast Agent Workflow")
-        dot.attr(label="Broadcast Workflow", rankdir="TB")  # Top to bottom layout
+        """Returns a Digraph object for parallel flow."""
+        dot = graphviz.Digraph(comment="Parallel Agent Workflow")
+        dot.attr(label="Parallel Workflow", rankdir="TB")  # Top to bottom layout
 
         if not agents:
             dot.node("empty", "No agents")
             return dot
 
-        # Create a central "broadcast" node *specific to this workflow plot*
-        broadcast_node_id = "broadcast_source"
-        dot.node(broadcast_node_id, "Broadcast\nInput", shape="box", style="filled", fillcolor="lightblue")
+        # Create a central "parallel" node *specific to this workflow plot*
+        parallel_node_id = "parallel_source"
+        dot.node(parallel_node_id, "Parallel\nInput", shape="box", style="filled", fillcolor="lightblue")
 
-        # Connect the broadcast node to all agents
+        # Connect the parallel node to all agents
         for agent in agents:
             agent_label = getattr(agent, "name", str(id(agent)))
             node_id = f"agent_{agent_label}"  # Use agent name for node ID
             dot.node(node_id, agent_label)
-            dot.edge(broadcast_node_id, node_id)
+            dot.edge(parallel_node_id, node_id)
 
         return dot

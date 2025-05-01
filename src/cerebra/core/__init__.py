@@ -1,7 +1,7 @@
 from cerebra.core.agent import Agent
 from cerebra.core.group import Group
 from cerebra.core.graph import Graph, Node
-from cerebra.core.workflow import Workflow, SequentialWorkflow, BroadcastWorkflow
+from cerebra.core.workflow import Workflow, SequentialWorkflow, ParallelWorkflow
 
 __all__ = [
     "Agent",
@@ -10,5 +10,5 @@ __all__ = [
     "Node",
     "Workflow",
     "SequentialWorkflow",
-    "BroadcastWorkflow",
+    "ParallelWorkflow",
 ]

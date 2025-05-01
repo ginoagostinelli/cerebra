@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Set, Tuple, Union
 from collections import defaultdict
 from graphlib import TopologicalSorter
 from cerebra.core.group import Group
-from cerebra.core.workflow import SequentialWorkflow, BroadcastWorkflow
+from cerebra.core.workflow import SequentialWorkflow, ParallelWorkflow
 import traceback
 
 START_NODE_ID = "__START__"
@@ -331,7 +331,7 @@ class Graph:
 
             agents_info: Dict[str, Dict[str, str]] = {}  # global_agent_id -> {label, group_id}
 
-            # group_node_id -> {workflow, agent_ids, first_agent, last_agent, broadcast_input_node, broadcast_output_node}
+            # group_node_id -> {workflow, agent_ids, first_agent, last_agent, parallel_input_node, parallel_output_node}
             groups_plot_info: Dict[str, Dict[str, Any]] = {}
 
             if has_start_node:
@@ -353,13 +353,13 @@ class Graph:
 
                         group_agents_list = []  # List of global agent IDs in this group
                         first_agent_id, last_agent_id = None, None
-                        broadcast_input_node_id, broadcast_output_node_id = None, None
+                        parallel_input_node_id, parallel_output_node_id = None, None
 
-                        # Create special points for broadcast input/output visualization *inside* subgraph
-                        if isinstance(group.workflow, BroadcastWorkflow):
-                            broadcast_input_node_id = f"{node_id}_broadcast_entry"
+                        # Create special points for parallel input/output visualization *inside* subgraph
+                        if isinstance(group.workflow, ParallelWorkflow):
+                            parallel_input_node_id = f"{node_id}_parallel_entry"
                             sub.node(
-                                name=broadcast_input_node_id,
+                                name=parallel_input_node_id,
                                 label="",
                                 shape="circle",
                                 width="0.15",
@@ -367,9 +367,9 @@ class Graph:
                                 style="filled",
                                 fillcolor="dodgerblue",
                             )
-                            broadcast_output_node_id = f"{node_id}_broadcast_collector"
+                            parallel_output_node_id = f"{node_id}_parallel_collector"
                             sub.node(
-                                name=broadcast_output_node_id,
+                                name=parallel_output_node_id,
                                 label="",
                                 shape="circle",
                                 width="0.15",
@@ -405,8 +405,8 @@ class Graph:
                             "agent_ids": group_agents_list,
                             "first_agent": first_agent_id,
                             "last_agent": last_agent_id,
-                            "broadcast_input_node": broadcast_input_node_id,
-                            "broadcast_output_node": broadcast_output_node_id,
+                            "parallel_input_node": parallel_input_node_id,
+                            "parallel_output_node": parallel_output_node_id,
                         }
 
             # Create workflow-specific edges *within* groups (connecting agents/points)
@@ -418,9 +418,9 @@ class Graph:
                     for i in range(len(agent_ids) - 1):
                         dot.edge(agent_ids[i], agent_ids[i + 1], color="black")
 
-                elif isinstance(workflow, BroadcastWorkflow) and agent_ids:
-                    input_node = info["broadcast_input_node"]
-                    output_node = info["broadcast_output_node"]
+                elif isinstance(workflow, ParallelWorkflow) and agent_ids:
+                    input_node = info["parallel_input_node"]
+                    output_node = info["parallel_output_node"]
                     if input_node and output_node:
                         for agent_id in agent_ids:
                             dot.edge(input_node, agent_id, color="dodgerblue", arrowhead="none")
@@ -439,8 +439,8 @@ class Graph:
                         continue  # Skip if START isn't plotted
                 elif from_node_id in groups_plot_info:
                     from_info = groups_plot_info[from_node_id]
-                    if isinstance(from_info["workflow"], BroadcastWorkflow):
-                        connect_from_id = from_info.get("broadcast_output_node")
+                    if isinstance(from_info["workflow"], ParallelWorkflow):
+                        connect_from_id = from_info.get("parallel_output_node")
                     else:  # Default (Sequential, or others)
                         connect_from_id = from_info.get("last_agent")
                 # Else: Source is not START and not a plottable group
@@ -460,8 +460,8 @@ class Graph:
 
                     # Determine the connection point for the target node based on its workflow
                     target_workflow = to_info["workflow"]
-                    if isinstance(target_workflow, BroadcastWorkflow):
-                        connect_to_id = to_info.get("broadcast_input_node")
+                    if isinstance(target_workflow, ParallelWorkflow):
+                        connect_to_id = to_info.get("parallel_input_node")
                     else:  # Default (Sequential, or others)
                         connect_to_id = to_info.get("first_agent")
 
