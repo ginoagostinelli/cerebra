@@ -101,8 +101,9 @@ class Graph:
             from_node_id = START_NODE_ID
             self._has_start_node_edges = True
         elif isinstance(from_item, (Group, Node)):
-            self.add_node(from_item)
             from_node_id = from_item.name
+            if from_node_id not in self.nodes:
+                self.add_node(from_item)
         elif isinstance(from_item, str):
             from_node_id = from_item
             if from_node_id not in self.nodes and from_node_id != START_NODE_ID:
@@ -114,8 +115,9 @@ class Graph:
         if to_item == START_NODE_ID:
             raise ValueError(f"Cannot add edge pointing *to* the reserved start node '{START_NODE_ID}'.")
         elif isinstance(to_item, (Group, Node)):
-            self.add_node(to_item)
             to_node_id = to_item.name
+            if to_node_id not in self.nodes:
+                self.add_node(to_item)
         elif isinstance(to_item, str):
             to_node_id = to_item
             if to_node_id not in self.nodes:
