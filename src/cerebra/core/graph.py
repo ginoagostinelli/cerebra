@@ -89,29 +89,42 @@ class Graph:
         self.edges.setdefault(node.id, set())
         self._predecessors.setdefault(node.id, set())
 
-    def add_edge(self, from_node_id: str, to_node_id: str):
+    def add_edge(self, from_item: Union[str, Group, Node], to_item: Union[str, Group, Node]):
         """
-        Adds a directed edge connecting two nodes or from the START node.
+        Adds a directed edge connecting two items (Nodes, Groups, or string IDs).
 
         Args:
-            from_node_id: The ID of the node where the edge originates, or START_NODE_ID.
-            to_node_id: The ID of the node where the edge terminates.
+            from_item: The source item (Node, Group, or string ID, or START_NODE_ID).
+            to_item: The target item (Node, Group, or string ID).
         """
-        if to_node_id == START_NODE_ID:
-            raise ValueError(f"Cannot add edge pointing *to* the reserved start node '{START_NODE_ID}'.")
-        if to_node_id not in self.nodes:
-            raise ValueError(f"Target node '{to_node_id}' not found in graph.")
-
-        if from_node_id == START_NODE_ID:
+        if from_item == START_NODE_ID:
+            from_node_id = START_NODE_ID
             self._has_start_node_edges = True
+        elif isinstance(from_item, (Group, Node)):
+            self.add_node(from_item)
+            from_node_id = from_item.name
+        elif isinstance(from_item, str):
+            from_node_id = from_item
+            if from_node_id not in self.nodes and from_node_id != START_NODE_ID:
+                raise ValueError(f"Source node ID '{from_node_id}' not found in graph.")
+        else:
+            raise TypeError("Edge source must be a string ID, Group, Node, or START_NODE_ID.")
 
-            # TODO: Maybe store these special edges separately for clarity
-            self.edges[from_node_id].add(to_node_id)
-            self._predecessors[to_node_id].add(from_node_id)
+        # --- Determine the 'to' node ID ---
+        if to_item == START_NODE_ID:
+            raise ValueError(f"Cannot add edge pointing *to* the reserved start node '{START_NODE_ID}'.")
+        elif isinstance(to_item, (Group, Node)):
+            self.add_node(to_item)
+            to_node_id = to_item.name
+        elif isinstance(to_item, str):
+            to_node_id = to_item
+            if to_node_id not in self.nodes:
+                raise ValueError(f"Target node ID '{to_node_id}' not found in graph.")
+        else:
+            raise TypeError("Edge target must be a string ID, Group, or Node.")
 
-        elif from_node_id not in self.nodes:
-            raise ValueError(f"Source node '{from_node_id}' not found in graph.")
-        elif from_node_id == to_node_id:
+        # ---
+        if from_node_id == to_node_id:
             raise ValueError(f"Cannot add self-loop edge from '{from_node_id}' to itself.")
 
         self.edges[from_node_id].add(to_node_id)
