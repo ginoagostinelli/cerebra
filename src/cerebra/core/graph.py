@@ -33,7 +33,7 @@ class Node:
             raise TypeError(f"Node content {content} must have a non-empty 'name' attribute.")
 
         if id != content.name:
-            print(f"Warning: Node ID '{id}' differs from content name '{content.name}'. Using ID '{id}'.")
+            raise ValueError("Node ID must match content name.")
 
         self.id: str = id
         self.content: Union[Agent, Group] = content
