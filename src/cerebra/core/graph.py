@@ -73,24 +73,33 @@ class Graph:
 
     def add_node(self, item: Union[Node, Agent, Group]):
         """Adds an item to the graph."""
-        if isinstance(item, (Agent, Group)):
-            node_id = item.name
-            if not node_id:
-                raise ValueError(f"{type(item).__name__} must have a non-empty name to be added as a node.")
-            if node_id == START_NODE_ID:
-                raise ValueError(f"{type(item).__name__} name cannot be the reserved ID '{START_NODE_ID}'.")
-            if node_id in self.nodes:
-                # Optional: Allow updating existing node content? For now, raise error.
-                raise ValueError(f"Node or Group with name/ID '{node_id}' already exists.")
-            node = Node(id=node_id, content=item)
-        elif isinstance(item, Node):
+
+        if isinstance(item, Node):
             node = item
+            node_id = node.id
             if node.id == START_NODE_ID:
                 raise ValueError(f"Node ID cannot be the reserved ID '{START_NODE_ID}'.")
             if node.id in self.nodes:
                 raise ValueError(f"Node with ID '{node.id}' already exists.")
+
+        elif isinstance(item, (Agent, Group)):
+            node_id = item.name
+            if not node_id:
+                raise ValueError(f"{type(item).__name__} must have a non-empty name to be added as a node.")
+            try:
+                node = Node(id=node_id, content=item)
+            except ValueError as e:
+                raise ValueError(f"Failed to create Node for {item}: {e}") from e
+
         else:
             raise TypeError("Can only add objects of type Node or Group to the graph.")
+
+        if node_id == START_NODE_ID:
+            raise ValueError(f"Node ID cannot be the reserved ID '{START_NODE_ID}'.")
+
+        if node_id in self.nodes:
+            if self.nodes[node_id].content is node.content:
+                return  # Already exists, do nothing
 
         self.nodes[node.id] = node
         self.edges.setdefault(node.id, set())
