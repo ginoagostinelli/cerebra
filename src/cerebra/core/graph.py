@@ -71,8 +71,94 @@ class Graph:
         self._has_start_node_edges = False  # Track if the user explicitly added edges from START_NODE_ID
         self.start_node = START_NODE_ID
 
-    def add_node(self, item: Union[Node, Agent, Group]):
-        """Adds an item to the graph."""
+    def add_edge(
+        self,
+        from_items: Union[str, Agent, Group, Node, List[Union[str, Agent, Group, Node]]],
+        to_items: Union[str, Agent, Group, Node, List[Union[str, Agent, Group, Node]]],
+    ) -> None:
+        """
+        Adds one or many directed edges between sources and targets.
+
+        Args:
+            from_items: A single source item or list of source items.
+            to_items: A single target item or list of target items.
+        """
+        if isinstance(from_items, (list, tuple)):
+            sources = list(from_items)
+        else:
+            sources = [from_items]
+
+        if isinstance(to_items, (list, tuple)):
+            targets = list(to_items)
+        else:
+            targets = [to_items]
+
+        for src in sources:
+            for tgt in targets:
+                self._add_single_edge(src, tgt)
+
+    def _add_single_edge(self, from_item: Union[str, Agent, Group, Node], to_item: Union[str, Agent, Group, Node]):
+        """
+        Adds a single directed edge connecting two items (Nodes, Agents, Groups, or string IDs).
+
+        Args:
+            from_item: The source item or its ID (or START_NODE_ID).
+            to_item: The target item or its ID.
+        """
+        try:
+            from_node_id = self._resolve_item_to_id(from_item)
+        except (ValueError, TypeError) as e:
+            raise type(e)(f"Source node resolution failed: {e}") from e
+
+        if to_item == START_NODE_ID:
+            raise ValueError(f"Cannot connect *to* the reserved start node '{START_NODE_ID}'.")
+
+        try:
+            to_node_id = self._resolve_item_to_id(to_item)
+        except (ValueError, TypeError) as e:
+            raise type(e)(f"Target node resolution failed: {e}") from e
+
+        if from_node_id == to_node_id:
+            raise ValueError(f"Cannot add self-loop connection from '{from_node_id}' to itself.")
+
+        # Add the edge if it doesn't exist already
+        if to_node_id not in self.edges[from_node_id]:
+            self.edges[from_node_id].add(to_node_id)
+            self._predecessors[to_node_id].add(from_node_id)
+
+        if from_node_id == START_NODE_ID:
+            self._has_start_node_edges = True
+
+    def _resolve_item_to_id(self, item: Union[str, Agent, Group, Node]) -> str:
+        """Resolves an item (Agent, Group, Node, str) to its node ID string."""
+        if item == START_NODE_ID:
+            return START_NODE_ID
+
+        elif isinstance(item, Node):
+            node_id = item.id
+            if node_id not in self.nodes:
+                print(f"Warning: Node object {item} passed but not found in graph nodes. Adding it.")
+                self._add_node(item)
+            return node_id
+
+        elif isinstance(item, (Agent, Group)):
+            node_id = item.name
+            if not node_id:
+                raise ValueError(f"{type(item).__name__} must have a non-empty name.")
+            if node_id not in self.nodes:
+                self._add_node(item)
+            return node_id
+
+        elif isinstance(item, str):
+            if item != START_NODE_ID and item not in self.nodes:
+                raise ValueError(f"Node ID '{item}' not found in graph.")
+            return item
+
+        else:
+            raise TypeError(f"Invalid item type for connection: {type(item)}. Must be str, Agent, Group, or Node.")
+
+    def _add_node(self, item: Union[Node, Agent, Group]):
+        """Adds an Agent, Group, or Node object to the graph."""
 
         if isinstance(item, Node):
             node = item
@@ -104,49 +190,6 @@ class Graph:
         self.nodes[node.id] = node
         self.edges.setdefault(node.id, set())
         self._predecessors.setdefault(node.id, set())
-
-    def add_edge(self, from_item: Union[str, Agent, Group, Node], to_item: Union[str, Agent, Group, Node]):
-        """
-        Adds a directed edge connecting two items (Nodes, Groups, or string IDs).
-
-        Args:
-            from_item: The source item (Node, Group, or string ID, or START_NODE_ID).
-            to_item: The target item (Node, Group, or string ID).
-        """
-        if from_item == START_NODE_ID:
-            from_node_id = START_NODE_ID
-            self._has_start_node_edges = True
-        elif isinstance(from_item, (Agent, Group, Node)):
-            from_node_id = from_item.name
-            if from_node_id not in self.nodes:
-                self.add_node(from_item)
-        elif isinstance(from_item, str):
-            from_node_id = from_item
-            if from_node_id not in self.nodes and from_node_id != START_NODE_ID:
-                raise ValueError(f"Source node ID '{from_node_id}' not found in graph.")
-        else:
-            raise TypeError("Edge source must be a string ID, Group, Node, or START_NODE_ID.")
-
-        # --- Determine the 'to' node ID ---
-        if to_item == START_NODE_ID:
-            raise ValueError(f"Cannot add edge pointing *to* the reserved start node '{START_NODE_ID}'.")
-        elif isinstance(to_item, (Agent, Group, Node)):
-            to_node_id = to_item.name
-            if to_node_id not in self.nodes:
-                self.add_node(to_item)
-        elif isinstance(to_item, str):
-            to_node_id = to_item
-            if to_node_id not in self.nodes:
-                raise ValueError(f"Target node ID '{to_node_id}' not found in graph.")
-        else:
-            raise TypeError("Edge target must be a string ID, Group, or Node.")
-
-        # ---
-        if from_node_id == to_node_id:
-            raise ValueError(f"Cannot add self-loop edge from '{from_node_id}' to itself.")
-
-        self.edges[from_node_id].add(to_node_id)
-        self._predecessors[to_node_id].add(from_node_id)
 
     def _get_graph_definition(self) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]:
         """
