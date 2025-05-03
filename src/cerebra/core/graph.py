@@ -1,10 +1,9 @@
 import graphviz
-from typing import Dict, Any, List, Set, Tuple, Union
+from typing import Dict, Any, List, Set, Tuple, Union, Optional, Type
 from collections import defaultdict
 from graphlib import TopologicalSorter
 from cerebra.core.agent import Agent
 from cerebra.core.group import Group
-from cerebra.core.workflow import SequentialWorkflow, ParallelWorkflow
 import traceback
 
 START_NODE_ID = "__START__"
@@ -60,6 +59,12 @@ class Node:
         content_type = self.content.__class__.__name__
         return f"Node(id='{self.id}', type='{content_type}', name='{self.name}')"
 
+    def __rshift__(self, other):
+        raise TypeError(f"Cannot use '>>' operator on Node objects outside a 'graph.build_connections()' context.")
+
+    def __rrshift__(self, other):
+        raise TypeError(f"Cannot use '>>' operator with list/tuple on the left outside a 'graph.build_connections()' context.")
+
 
 class Graph:
     """Manages and executes a graph of connected Nodes."""
@@ -70,6 +75,19 @@ class Graph:
         self._predecessors: Dict[str, Set[str]] = defaultdict(set)
         self._has_start_node_edges = False  # Track if the user explicitly added edges from START_NODE_ID
         self.start_node = START_NODE_ID
+
+    def build_connections(self):
+        """
+        Context manager to build graph connections using '>>' operator.
+
+        Usage:
+            with graph.build_connections():
+                a >> b >> [c, d]
+                [x, y] >> z
+        """
+        if getattr(self, "_builder_active", False):
+            raise RuntimeError("Connection builder already active")
+        return _ConnectionBuilder(self)
 
     def add_edge(
         self,
@@ -601,3 +619,107 @@ class Graph:
                     dot.edge(connect_from_plot_id, connect_to_plot_id, **edge_attrs)
 
             return dot
+
+
+class _ConnectionBuilder:
+    """
+    Internal helper class activated by `Graph.build_connections()`.
+    Temporarily overrides the `__rshift__` (>>) operator for Agent, Group,
+    and Node classes to enable intuitive graph definition syntax.
+    """
+
+    def __init__(self, graph: Graph):
+        """
+        Initializes the builder with the target Graph instance.
+
+        Args:
+            graph: The Graph object to which connections will be added.
+        """
+        self._graph = graph
+        self._orig_rshift_methods: Dict[Type, Optional[Any]] = {}
+        self._orig_rrshift_methods: Dict[Type, Optional[Any]] = {}
+        self._active = False
+
+    def __enter__(self) -> "_ConnectionBuilder":
+        if self._active:
+            raise RuntimeError("ConnectionBuilder cannot be re-entered.")
+        self._active = True
+
+        setattr(self._graph, "_builder_active", True)
+
+        def make_rshift(cls: Type) -> Any:
+            """Factory to create the __rshift__ method for patching."""
+
+            def __rshift__(
+                self_obj: Union[Agent, Group, Node], other: Union[Agent, Group, Node, List, Tuple]
+            ) -> Union[Agent, Group, Node, List, Tuple]:
+                """Overridden '>>' operator (e.g., node >> other)."""
+                self._graph.add_edge(self_obj, other)
+
+                # Return the right-hand side ('other') to allow chaining:
+                # e.g., a >> b >> c works because (a >> b) returns b.
+                return other
+
+            return __rshift__
+
+        def make_rrshift(cls: Type) -> Any:
+            """Factory to create the __rrshift__ (reflected >>) method."""
+
+            def __rrshift__(self_obj: Union[Agent, Group, Node], other: Union[List, Tuple]) -> Union[Agent, Group, Node]:
+                """Overridden reflected '>>' operator (e.g., list >> node)."""
+
+                self._graph.add_edge(other, self_obj)
+
+                # Return the right-hand side ('self_obj') to allow chaining:
+                # e.g., [a, b] >> c >> d works because ([a, b] >> c) returns c.
+                return self_obj
+
+            return __rrshift__
+
+        # --- Monkey-patch the classes ---
+        target_classes = (Agent, Group, Node)
+        self._orig_rshift_methods.clear()
+        self._orig_rrshift_methods.clear()
+
+        for cls in target_classes:
+            self._orig_rshift_methods[cls] = getattr(cls, "__rshift__", None)
+            setattr(cls, "__rshift__", make_rshift(cls))
+
+            self._orig_rrshift_methods[cls] = getattr(cls, "__rrshift__", None)
+            setattr(cls, "__rrshift__", make_rrshift(cls))
+
+        return self  # Return self (the builder instance), although it's not typically used directly
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """Called when exiting the 'with' block. Restores original operators."""
+        if not self._active:
+            return False
+
+        # --- Restore original methods ---
+        target_classes = (Agent, Group, Node)
+        for cls in target_classes:
+
+            orig_rshift = self._orig_rshift_methods.get(cls)
+            if hasattr(cls, "__rshift__"):
+                if orig_rshift is None:
+                    delattr(cls, "__rshift__")
+                else:
+                    setattr(cls, "__rshift__", orig_rshift)
+
+            orig_rrshift = self._orig_rrshift_methods.get(cls)
+            if hasattr(cls, "__rrshift__"):
+                if orig_rrshift is None:
+                    delattr(cls, "__rrshift__")
+                else:
+                    setattr(cls, "__rrshift__", orig_rrshift)
+
+        self._orig_rshift_methods.clear()
+        self._orig_rrshift_methods.clear()
+        self._active = False
+
+        if hasattr(self._graph, "_builder_active"):
+            delattr(self._graph, "_builder_active")
+
+        # Return False to indicate that if an exception occurred within the
+        # 'with' block, it should not be suppressed by this __exit__ method.
+        return False
