@@ -83,15 +83,8 @@ class Graph:
             from_items: A single source item or list of source items.
             to_items: A single target item or list of target items.
         """
-        if isinstance(from_items, (list, tuple)):
-            sources = list(from_items)
-        else:
-            sources = [from_items]
-
-        if isinstance(to_items, (list, tuple)):
-            targets = list(to_items)
-        else:
-            targets = [to_items]
+        sources = from_items if isinstance(from_items, (list, tuple)) else [from_items]
+        targets = to_items if isinstance(to_items, (list, tuple)) else [to_items]
 
         for src in sources:
             for tgt in targets:
