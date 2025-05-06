@@ -112,8 +112,8 @@ def save_to_file(data: str, path: str):
     Saves the provided text data to a file at the specified path.
     
     Args:
-        data (str): The text content to be saved to the file
-        path (str): The file path where the data should be saved
+        data: The text content to be saved to the file
+        path: The file path where the data should be saved
     """
     with open(path, 'w') as f:
         f.write(data)
