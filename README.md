@@ -94,6 +94,8 @@ with G.build_connections():
 # graph.add_edge(analysis_group, decision_group)
 ```
 
+![Example Graph](./docs/example_graph.png)
+
 ### Run
 ```bash
 outputs = G.run(inputs={"ticker": "AAPL"})
