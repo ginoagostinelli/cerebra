@@ -12,9 +12,21 @@ class TagExtraction:
 
 
 def extract_tags(text: str, tag: str) -> TagExtraction:
-    """Extract all instances of content within specified XML-style tags."""
-    tag_pattern = rf"<{tag}>(.*?)</{tag}>"
-    matches = re.findall(tag_pattern, text, re.DOTALL)
+    """
+    Extract all instances of content within specified XML-style tags.
+
+    Args:
+        text: The text to parse.
+        tag: The XML-style tag name to extract content from (e.g., "response").
+
+    Returns:
+        A TagExtraction object containing a list of extracted content strings
+        and a boolean indicating if any tags were found.
+    """
+
+    tag_pattern = rf"<{tag}>(.*?)</{tag}>"  # finds <tag>content</tag>, capturing content non-greedily
+    matches = re.findall(tag_pattern, text, re.DOTALL)  # re.DOTALL allows '.' to match newline characters
+
     return TagExtraction(content=[content.strip() for content in matches], found=bool(matches))
 
 
