@@ -104,7 +104,7 @@ print(outputs)
 
 ## Create a tool
 ```bash
-from cerebra import tool
+from cerebra.tools import tool
 
 @tool(name="save_to_file")
 def save_to_file(data: str, path: str):
