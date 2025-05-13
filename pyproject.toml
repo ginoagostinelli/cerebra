@@ -5,15 +5,15 @@ description = "Lightweight framework to orchestrate intelligent multi-agent work
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.11.3",
     "graphviz>=0.20.3",
     "groq>=0.22.0",
-    "pydantic>=2.11.3",
-    "pytest>=8.3.5",
-    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "pytest>=8.0.0",
     "pytest-asyncio>=0.26.0",
 ]
 
