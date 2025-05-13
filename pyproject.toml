@@ -9,6 +9,9 @@ dependencies = [
     "groq>=0.22.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/ginoagostinelli/cerebra"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
