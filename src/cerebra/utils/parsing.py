@@ -32,46 +32,83 @@ def extract_tags(text: str, tag: str) -> TagExtraction:
 
 def parse_docstring_params(docstring: Optional[str]) -> Dict[str, str]:
     """
-    Parses parameter descriptions from a specific docstring format.
+    Parses parameter descriptions from various common docstring formats.
 
-    Expected format within the docstring:
-        Parameters:
-          - param_name: Description of the parameter.
-          * another_param: Description.
+    Attempts to find a parameter section (e.g., "Parameters:", "Args:")
+    and parse lines within it. If no section is found, it tries to parse
+    all lines in the docstring.
 
-        Args:
-          arg1: Description of arg1.
-          argument_item: Description of argument_item.
+    Supports:
+    - Sphinx/reST style keywords (e.g., ":param name: description")
+    - Google style (e.g., "name (type): description")
+    - Bullet points (e.g., "- name: description")
+    - Simple "name: description" lines.
+
+    Args:
+        docstring: The docstring to parse.
 
     Returns:
         A dictionary mapping parameter names to their descriptions.
+        Extracts only the first line of a multi-line description.
     """
     if not docstring:
         return {}
+
     params: Dict[str, str] = {}
 
-    # Regex to find parameter sections (Parameters, Args, Arguments - case-insensitive)
-    param_section_matches = re.finditer(r"(Parameters|Args|Arguments):\s*\n(.*?)(?:\n\n|\Z)", docstring, re.DOTALL | re.IGNORECASE)
+    # Regex for parameter sections (case-insensitive).
+    # Captures the content block of the section.
+    section_pattern = re.compile(r"^\s*(?:Parameters|Args|Arguments|Params):?\s*\n((?:.|\n)*?)(?=\n\s*\n|\Z)", re.MULTILINE | re.IGNORECASE)
 
-    for match in param_section_matches:
-        param_lines = match.group(2).strip().splitlines()
-        # Regex to capture '- param_name: description' or '* param_name: description'
-        param_line_pattern = re.compile(r"^\s*[-*]\s*(\w+)\s*:(.*)")
-        # Regex to capture 'param_name: description' without the bullet point
-        simple_param_pattern = re.compile(r"^\s*(\w+)\s*:(.*)")
+    # Regex patterns for individual parameter lines. Order can be important.
+    # 1. Sphinx/reST style with keyword (e.g., :param foo: description)
+    # Allows for *args, **kwargs by including '*' in name.
+    sphinx_kw_pattern = re.compile(r"^\s*:(?:param|parameter|arg|argument)\s+([\w\*]+)\s*:\s*(.+)")
+    # 2. Google style (e.g., foo (int): description)
+    # Captures name, optional type (not used here), and description.
+    google_pattern = re.compile(r"^\s*([\w\*]+)\s*(?:\(([^)]*)\))?:\s*(.+)")
+    # 3. Bullet point style (e.g., - foo: description or * foo: description)
+    bullet_pattern = re.compile(r"^\s*[-*]\s+([\w\*]+)\s*:\s*(.+)")
+    # 4. Simple style (e.g., foo: description) - often a fallback
+    simple_pattern = re.compile(r"^\s*([\w\*]+)\s*:\s*(.+)")
 
-        for line in param_lines:
-            bullet_match = param_line_pattern.match(line)
-            if bullet_match:
-                param_name = bullet_match.group(1).strip()
-                description = bullet_match.group(2).strip()
-                params[param_name] = description
-                continue  # Move to the next line
+    content_to_parse = docstring
+    section_match = section_pattern.search(docstring)
 
-            simple_match = simple_param_pattern.match(line)
-            if simple_match:
-                param_name = simple_match.group(1).strip()
-                description = simple_match.group(2).strip()
-                params[param_name] = description
+    if section_match:
+        # If a specific parameter section is found, parse content within that section.
+        content_to_parse = section_match.group(1)
+
+    for line in content_to_parse.splitlines():
+        stripped_line = line.strip()
+        if not stripped_line:  # Skip empty lines
+            continue
+
+        # Try matching patterns in a specific order
+        match_obj = sphinx_kw_pattern.match(stripped_line)
+        if match_obj:
+            param_name, description = match_obj.groups()
+            params[param_name.strip()] = description.strip()
+            continue
+
+        match_obj = google_pattern.match(stripped_line)
+        if match_obj:
+            # Google pattern captures name, type (optional), description
+            param_name, _type_info, description = match_obj.groups()
+            params[param_name.strip()] = description.strip()
+            continue
+
+        match_obj = bullet_pattern.match(stripped_line)
+        if match_obj:
+            param_name, description = match_obj.groups()
+            params[param_name.strip()] = description.strip()
+            continue
+
+        # Fallback to the simple pattern if parsing the whole docstring or within a section
+        match_obj = simple_pattern.match(stripped_line)
+        if match_obj:
+            param_name, description = match_obj.groups()
+            params[param_name.strip()] = description.strip()
+            # No continue needed as it's the last pattern
 
     return params
