@@ -1,3 +1,3 @@
-from cerebra.tools.base import Tool, tool
+from cerebra.tools.base import BaseTool, FunctionTool, tool
 
-__all__ = ["Tool", "tool"]
+__all__ = ["BaseTool", "FunctionTool", "tool"]
