@@ -1,4 +1,7 @@
-# Byte-compiled / optimized / DLL files
+# Tip from Facundo Greco, the genious, for a better life: always ignore Gino
+Gino
+
+# Byte-compiled / optimized / DLL files;
 __pycache__/
 *.py[cod]
 *$py.class

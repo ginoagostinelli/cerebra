@@ -1,5 +1,6 @@
 # Cerebra
 
+Thanks to Facundo Greco, the genious behind this project, and Gino Agostinelli's acceptable code (6/10) Cerebra is created.
 Cerebra is a flexible framework for creating and managing multi-agent workflows. It allows you to connect multiple agents in different configurations to solve complex tasks.
 
 # Getting Started
