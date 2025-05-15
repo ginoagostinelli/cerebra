@@ -20,6 +20,7 @@ def _python_type_to_json_schema_type(py_type: Any) -> str:
         return "string"
     if py_type is bool:
         return "boolean"
+
     origin = get_origin(py_type)
     if origin is list or py_type is list:
         return "array"
@@ -29,6 +30,16 @@ def _python_type_to_json_schema_type(py_type: Any) -> str:
         return "string"
     if inspect.isclass(py_type) and issubclass(py_type, BaseModel):
         return "object"  # For Pydantic models used as type hints
+
+    # Handle Union types, especially Optional[X] (Union[X, NoneType])
+    if origin is Union:
+        args = get_args(py_type)
+        non_none_args = [arg for arg in args if arg is not type(None)]
+        if len(non_none_args) == 1:  # Handles Optional[X] -> X
+            return _python_type_to_json_schema_type(non_none_args[0])
+        # For Union[X, Y] (not Optional), could return a more complex schema or default
+        return "string"
+
     return "string"  # Default for other unhandled types
 
 
