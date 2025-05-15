@@ -48,10 +48,12 @@ def _pydantic_model_to_tool_schema(pydantic_model: Type[BaseModel]) -> Dict[str,
     if not hasattr(pydantic_model, "model_json_schema"):
         raise AttributeError("The provided args_schema model does not have 'model_json_schema'. " "Ensure it's a Pydantic V2 BaseModel.")
     schema = pydantic_model.model_json_schema()
+    defs_key = "$defs" if "$defs" in schema else "definitions"
     return {
         "type": schema.get("type", "object"),
         "properties": schema.get("properties", {}),
         "required": schema.get("required", []),
+        defs_key: schema.get(defs_key, {}),
     }
 
 
