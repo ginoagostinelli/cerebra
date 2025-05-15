@@ -24,8 +24,9 @@ def extract_xml_tags(text: str, tag: str) -> TagExtraction:
         and a boolean indicating if any tags were found.
     """
 
-    tag_pattern = rf"<{tag}>(.*?)</{tag}>"  # finds <tag>content</tag>, capturing content non-greedily
-    matches = re.findall(tag_pattern, text, re.DOTALL)  # re.DOTALL allows '.' to match newline characters
+    escaped_tag = re.escape(tag)
+    tag_pattern = rf"<{escaped_tag}[^>]*>(.*?)</{escaped_tag}>"
+    matches = re.findall(tag_pattern, text, re.DOTALL)
 
     return TagExtraction(content=[content.strip() for content in matches], found=bool(matches))
 
