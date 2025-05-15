@@ -4,7 +4,7 @@ from typing import Dict, List, Any, Optional, Tuple, Union
 from textwrap import dedent
 
 from cerebra.utils.chat_history import ChatHistory
-from cerebra.utils.parsing import extract_tags
+from cerebra.utils.parsing import extract_xml_tags
 from cerebra.prompts.prompts import SystemPrompts
 from cerebra.api_client import APIClient
 
@@ -159,13 +159,13 @@ class Agent:
                 completion = self.invoke(self.chat_history.get_messages())
                 self.chat_history.add_message(completion, "assistant")
 
-                response = extract_tags(str(completion), "response")
+                response = extract_xml_tags(str(completion), "response")
 
                 if response.found:
                     final_ans = response.content[0]
                     return final_ans
 
-                tool_calls = extract_tags(str(completion), "tool_call")
+                tool_calls = extract_xml_tags(str(completion), "tool_call")
 
                 for tool_call in tool_calls.content:
                     print(f"- Tool Calls: {tool_call}")

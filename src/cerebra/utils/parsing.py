@@ -11,7 +11,7 @@ class TagExtraction:
     found: bool
 
 
-def extract_tags(text: str, tag: str) -> TagExtraction:
+def extract_xml_tags(text: str, tag: str) -> TagExtraction:
     """
     Extract all instances of content within specified XML-style tags.
 
