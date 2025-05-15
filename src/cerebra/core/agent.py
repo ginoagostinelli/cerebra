@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Optional
 from textwrap import dedent
 
 from cerebra.utils.chat_history import ChatHistory

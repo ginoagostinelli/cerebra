@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any  # Added Any
+from typing import List, Optional, Dict
 
 
 @dataclass
