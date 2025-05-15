@@ -58,27 +58,28 @@ def parse_docstring_params(docstring: Optional[str]) -> Dict[str, str]:
     params: Dict[str, str] = {}
 
     # Regex for parameter sections (case-insensitive).
-    # Captures the content block of the section.
     section_pattern = re.compile(r"^\s*(?:Parameters|Args|Arguments|Params):?\s*\n((?:.|\n)*?)(?=\n\s*\n|\Z)", re.MULTILINE | re.IGNORECASE)
 
     # Regex patterns for individual parameter lines. Order can be important.
+
     # 1. Sphinx/reST style with keyword (e.g., :param foo: description)
     # Allows for *args, **kwargs by including '*' in name.
-    sphinx_kw_pattern = re.compile(r"^\s*:(?:param|parameter|arg|argument)\s+([\w\*]+)\s*:\s*(.+)")
+    sphinx_kw_pattern = re.compile(r"^\s*:(?:param|parameter|arg|argument)\s+([\w\*]+)\s*:\s*(.*)")
+
     # 2. Google style (e.g., foo (int): description)
-    # Captures name, optional type (not used here), and description.
-    google_pattern = re.compile(r"^\s*([\w\*]+)\s*(?:\(([^)]*)\))?:\s*(.+)")
+    google_pattern = re.compile(r"^\s*([\w\*]+)\s*(?:\(([^)]*)\))?:\s*(.*)")
+
     # 3. Bullet point style (e.g., - foo: description or * foo: description)
-    bullet_pattern = re.compile(r"^\s*[-*]\s+([\w\*]+)\s*:\s*(.+)")
+    bullet_pattern = re.compile(r"^\s*[-*]\s+([\w\*]+)\s*:\s*(.*)")
+
     # 4. Simple style (e.g., foo: description) - often a fallback
-    simple_pattern = re.compile(r"^\s*([\w\*]+)\s*:\s*(.+)")
+    simple_pattern = re.compile(r"^\s*([\w\*]+)\s*:\s*(.*)")
 
     content_to_parse = docstring
     section_match = section_pattern.search(docstring)
 
     if section_match:
-        # If a specific parameter section is found, parse content within that section.
-        content_to_parse = section_match.group(1)
+        content_to_parse = section_match.group(1)  # parse content within that section.
 
     for line in content_to_parse.splitlines():
         stripped_line = line.strip()
