@@ -85,30 +85,31 @@ def parse_docstring_params(docstring: Optional[str]) -> Dict[str, str]:
             continue
 
         # Try matching patterns in a specific order
+        # For each pattern, if matched, extract name and description, then continue to next line.
         match_obj = sphinx_kw_pattern.match(stripped_line)
         if match_obj:
             param_name, description = match_obj.groups()
-            params[param_name.strip()] = description.strip()
+            # Take only the first line of the description if it's multi-line
+            params[param_name.strip()] = description.strip().split("\n", 1)[0]
             continue
 
         match_obj = google_pattern.match(stripped_line)
         if match_obj:
-            # Google pattern captures name, type (optional), description
             param_name, _type_info, description = match_obj.groups()
-            params[param_name.strip()] = description.strip()
+            params[param_name.strip()] = description.strip().split("\n", 1)[0]
             continue
 
         match_obj = bullet_pattern.match(stripped_line)
         if match_obj:
             param_name, description = match_obj.groups()
-            params[param_name.strip()] = description.strip()
+            params[param_name.strip()] = description.strip().split("\n", 1)[0]
             continue
 
         # Fallback to the simple pattern if parsing the whole docstring or within a section
+        # and no other pattern matched.
         match_obj = simple_pattern.match(stripped_line)
         if match_obj:
             param_name, description = match_obj.groups()
-            params[param_name.strip()] = description.strip()
-            # No continue needed as it's the last pattern
+            params[param_name.strip()] = description.strip().split("\n", 1)[0]
 
     return params
