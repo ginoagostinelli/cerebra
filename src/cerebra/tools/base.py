@@ -76,8 +76,6 @@ class BaseTool(ABC):
     args_schema: Optional[Type[BaseModel]] = None
     parameters: Dict[str, Dict[str, Any]] = {}
     is_async: bool = False
-    _run_impl_defined: bool = False
-    _arun_impl_defined: bool = False
 
     def __init__(self, name: str, description: str, is_async: bool = False):
         self.name = name
@@ -194,26 +192,21 @@ class FunctionTool(BaseTool):
         is_async_func = inspect.iscoroutinefunction(func)
         super().__init__(name=name, description=description, is_async=is_async_func)
         self.func = func
-        self.parameters = parameters  # Parameter metadata derived via introspection
-
-        if self.is_async:
-            self._arun_impl_defined = True
-        else:
-            self._run_impl_defined = True
+        self.parameters = parameters
 
     def _run(self, **kwargs) -> Any:
         """Overrides BaseTool._run to execute the wrapped synchronous function."""
         if self.is_async:
-            # This state should ideally be handled by BaseTool.run's fallback logic
-            raise RuntimeError(f"Cannot synchronously run async FunctionTool '{self.name}'.")
+            # This should be caught by BaseTool.run's fallback logic
+            raise NotImplementedError(f"FunctionTool '{self.name}' is async, _run not directly callable for it.")
         validated_args = self._validate_and_convert_args(**kwargs)
         return self.func(**validated_args)
 
     async def _arun(self, **kwargs) -> Any:
         """Overrides BaseTool._arun to execute the wrapped asynchronous function."""
         if not self.is_async:
-            # This state should ideally be handled by BaseTool.arun's fallback logic
-            raise RuntimeError(f"Cannot asynchronously run sync FunctionTool '{self.name}'.")
+            # This should be caught by BaseTool.arun's fallback logic.
+            raise NotImplementedError(f"FunctionTool '{self.name}' is sync, _arun not directly callable for it.")
         validated_args = self._validate_and_convert_args(**kwargs)
         return await self.func(**validated_args)
 
