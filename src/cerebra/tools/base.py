@@ -241,21 +241,20 @@ class FunctionTool(BaseTool):
                             value = int(value)
                         elif expected_type is float:
                             value = float(value)
-                        elif get_origin(expected_type) is list:  # Expect JSON array string
-                            try:
-                                value = json.loads(value)
-                            except json.JSONDecodeError:
-                                raise ValueError(f"Cannot convert string '{value}' to list. Expected JSON array string.")
-                        elif get_origin(expected_type) is dict:  # Expect JSON object string
-                            try:
-                                value = json.loads(value)
-                            except json.JSONDecodeError:
-                                raise ValueError(f"Cannot convert string '{value}' to dict. Expected JSON object string.")
+                        elif get_origin(expected_type) is list or expected_type is list:  # Expect JSON array string
+                            loaded_value = json.loads(value)
+                            if not isinstance(loaded_value, list):
+                                raise ValueError(f"Converted string '{value}' to {type(loaded_value).__name__}, expected list.")
+                            value = loaded_value
+                        elif get_origin(expected_type) is dict or expected_type is dict:  # Expect JSON object string
+                            loaded_value = json.loads(value)
+                            if not isinstance(loaded_value, dict):
+                                raise ValueError(f"Converted string '{value}' to {type(loaded_value).__name__}, expected dict.")
+                            value = loaded_value
 
-                    validated_args[param_name] = value  # Assign the potentially converted value
+                    validated_args[param_name] = value
 
-                except (ValueError, TypeError) as e:
-                    # Add context to conversion errors
+                except (ValueError, TypeError, json.JSONDecodeError) as e:
                     raise type(e)(f"Error processing argument '{param_name}' for tool '{self.name}': {e}") from e
 
             else:  # Argument not provided by caller
