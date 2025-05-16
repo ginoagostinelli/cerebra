@@ -29,7 +29,7 @@ def _python_type_to_json_schema_type(py_type: Any) -> str:
     if py_type is Any:  # Default 'Any' to string for schema simplicity
         return "string"
     if inspect.isclass(py_type) and issubclass(py_type, BaseModel):
-        return "object"  # For Pydantic models used as type hints
+        return "object"  # For Pydantic models
 
     # Handle Union types, especially Optional[X] (Union[X, NoneType])
     if origin is Union:
@@ -84,14 +84,12 @@ class BaseTool(ABC):
         self.description = description
         self.is_async = is_async
 
-    @abstractmethod
     def _run(self, **kwargs) -> Any:
-        """Synchronous execution logic. Subclasses must implement this if not async-only."""
+        """Synchronous execution logic.Sync tools MUST override this."""
         raise NotImplementedError(f"Tool '{self.name}' synchronous execution (_run) not implemented.")
 
-    @abstractmethod
     async def _arun(self, **kwargs) -> Any:
-        """Asynchronous execution logic. Subclasses must implement this if not sync-only."""
+        """Asynchronous execution logic. Async tools MUST override this."""
         raise NotImplementedError(f"Tool '{self.name}' asynchronous execution (_arun) not implemented.")
 
     def run(self, **kwargs) -> Any:
