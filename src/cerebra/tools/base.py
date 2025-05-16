@@ -93,63 +93,57 @@ class BaseTool(ABC):
         raise NotImplementedError(f"Tool '{self.name}' asynchronous execution (_arun) not implemented.")
 
     def run(self, **kwargs) -> Any:
-        """
-        Executes the tool's synchronous logic, handling validation and async fallback.
-
-        1. Validates input arguments using `args_schema` if provided.
-        2. Calls the `_run` method implemented by the subclass.
-        3. If `_run` is not implemented and the tool is async with `_arun` implemented,
-           it attempts to run `_arun` blockingly using `asyncio.run`.
-        """
+        """Executes the tool's synchronous logic, handling validation and async fallback."""
         validated_args = kwargs
         if self.args_schema:
             try:
                 model_instance = self.args_schema(**kwargs)
                 validated_args = model_instance.model_dump()
             except Exception as e:
-                raise ValueError(f"Invalid arguments for tool '{self.name}': {e}") from e
+                raise ValueError(f"Invalid arguments for tool '{self.name}' using schema {self.args_schema.__name__}: {e}") from e
 
         try:
             return self._run(**validated_args)
-        except NotImplementedError:
-            if self.is_async and hasattr(self, "_arun") and self._arun.__func__ is not BaseTool._arun.__func__:
-                try:
-                    return asyncio.run(self._arun(**validated_args))
-                except RuntimeError as e:
-                    # Handle cases where asyncio.run cannot be called (e.g., nested loops)
-                    if "cannot be called from a running event loop" in str(e):
-                        raise RuntimeError(
-                            f"Tool '{self.name}' is async and _run is not implemented. "
-                            "Cannot call asyncio.run from an already running event loop. "
-                            "Use 'arun' directly or implement a synchronous '_run' method for this context."
-                        ) from e
-                    raise
+
+        except NotImplementedError:  # Fallback: if _run is not implemented, but _arun is (and tool is marked async)
+            if self.is_async:
+                # Check if _arun is actually overridden by the subclass, not just the base's NotImplementedError
+                if self._arun.__func__ is not BaseTool._arun.__func__:  # This check ensures we don't try to asyncio.run the base abstract method.
+                    try:
+                        return asyncio.run(self._arun(**validated_args))
+                    except RuntimeError as e:
+                        if "cannot be called from a running event loop" in str(e):
+                            raise RuntimeError(
+                                f"Tool '{self.name}' is async and _run is not implemented. "
+                                "Cannot call asyncio.run from an already running event loop. "
+                                "Use 'arun' directly or implement a synchronous '_run' method."
+                            ) from e
+                        raise
+                else:  # _arun is not overridden, and _run is also not implemented.
+                    raise NotImplementedError(f"Tool '{self.name}' is marked async, but neither _run nor a concrete _arun are implemented.") from None
+            # If not self.is_async, and _run raised NotImplementedError, then it's truly not implemented.
             raise
 
     async def arun(self, **kwargs) -> Any:
-        """
-        Executes the tool's asynchronous logic, handling validation and sync fallback.
-
-        1. Validates input arguments using `args_schema` if provided.
-        2. Calls the `_arun` method implemented by the subclass.
-        3. If `_arun` is not implemented and the tool is sync with `_run` implemented,
-           it runs `_run` within the event loop's executor.
-        """
+        """Executes the tool's asynchronous logic, handling validation and sync fallback."""
         validated_args = kwargs
         if self.args_schema:
             try:
                 model_instance = self.args_schema(**kwargs)
                 validated_args = model_instance.model_dump()
             except Exception as e:
-                raise ValueError(f"Invalid arguments for tool '{self.name}': {e}") from e
+                raise ValueError(f"Invalid arguments for tool '{self.name}' using schema {self.args_schema.__name__}: {e}") from e
 
         try:
             return await self._arun(**validated_args)
-        except NotImplementedError:
-            if not self.is_async and hasattr(self, "_run") and self._run.__func__ is not BaseTool._run.__func__:
-                loop = asyncio.get_event_loop()
-                # Run the synchronous method in a thread pool executor to avoid blocking the loop
-                return await loop.run_in_executor(None, functools.partial(self._run, **validated_args))
+
+        except NotImplementedError:  # Fallback: if _arun is not implemented, but _run is (and tool is not marked async)
+            if not self.is_async:
+                if self._run.__func__ is not BaseTool._run.__func__:
+                    loop = asyncio.get_event_loop()
+                    return await loop.run_in_executor(None, functools.partial(self._run, **validated_args))
+                else:  # _run is not overridden, and _arun is also not implemented.
+                    raise NotImplementedError(f"Tool '{self.name}' is marked sync, but neither _arun nor a concrete _run are implemented.") from None
             raise
 
     def signature(self) -> dict:
