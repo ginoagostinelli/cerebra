@@ -241,20 +241,26 @@ class FunctionTool(BaseTool):
                             value = int(value)
                         elif expected_type is float:
                             value = float(value)
-                        elif get_origin(expected_type) is list or expected_type is list:  # Expect JSON array string
-                            loaded_value = json.loads(value)
+                        elif get_origin(expected_type) is list or expected_type is list:
+                            try:
+                                loaded_value = json.loads(value)
+                            except json.JSONDecodeError as e_json:
+                                raise ValueError(f"Invalid JSON string for list: {e_json.msg}") from e_json
                             if not isinstance(loaded_value, list):
                                 raise ValueError(f"Converted string '{value}' to {type(loaded_value).__name__}, expected list.")
                             value = loaded_value
-                        elif get_origin(expected_type) is dict or expected_type is dict:  # Expect JSON object string
-                            loaded_value = json.loads(value)
+                        elif get_origin(expected_type) is dict or expected_type is dict:
+                            try:
+                                loaded_value = json.loads(value)
+                            except json.JSONDecodeError as e_json:
+                                raise ValueError(f"Invalid JSON string for dict: {e_json.msg}") from e_json
                             if not isinstance(loaded_value, dict):
                                 raise ValueError(f"Converted string '{value}' to {type(loaded_value).__name__}, expected dict.")
                             value = loaded_value
 
                     validated_args[param_name] = value
 
-                except (ValueError, TypeError, json.JSONDecodeError) as e:
+                except (ValueError, TypeError) as e:
                     raise type(e)(f"Error processing argument '{param_name}' for tool '{self.name}': {e}") from e
 
             else:  # Argument not provided by caller
