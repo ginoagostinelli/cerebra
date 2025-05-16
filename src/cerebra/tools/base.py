@@ -106,7 +106,7 @@ class BaseTool(ABC):
         except NotImplementedError:  # Fallback: if _run is not implemented, but _arun is (and tool is marked async)
             if self.is_async:
                 # Check if _arun is actually overridden by the subclass, not just the base's NotImplementedError
-                if self._arun.__func__ is not BaseTool._arun.__func__:  # This check ensures we don't try to asyncio.run the base abstract method.
+                if self._arun.__func__ is not BaseTool._arun:  # This check ensures we don't try to asyncio.run the base abstract method.
                     try:
                         return asyncio.run(self._arun(**validated_args))
                     except RuntimeError as e:
@@ -137,7 +137,7 @@ class BaseTool(ABC):
 
         except NotImplementedError:  # Fallback: if _arun is not implemented, but _run is (and tool is not marked async)
             if not self.is_async:
-                if self._run.__func__ is not BaseTool._run.__func__:
+                if self._run.__func__ is not BaseTool._run:
                     loop = asyncio.get_event_loop()
                     return await loop.run_in_executor(None, functools.partial(self._run, **validated_args))
                 else:  # _run is not overridden, and _arun is also not implemented.
